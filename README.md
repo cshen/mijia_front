@@ -1,5 +1,7 @@
 # 🏠 Mijia Web Dashboard
 
+> 🤖 **Note:** This project was created with the assistance of [GitHub Copilot](https://github.com/features/copilot) AI coding.
+
 A clean, dark-themed web dashboard for viewing and controlling all your **Xiaomi Mi Home (米家)** IoT devices — lights, switches, sensors, air purifiers, and more — directly from your browser.
 
 Built on top of [`mijiaAPI`](https://github.com/Do1e/mijia-api) with a **FastAPI** backend and a **Vue 3** single-page frontend.
