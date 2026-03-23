@@ -21,6 +21,11 @@ from pydantic import BaseModel
 from mijiaAPI import APIError, LoginError, mijiaAPI
 from mijiaAPI.devices import get_device_info
 
+# ── Paths ──────────────────────────────────────────────────────────────────────
+import sys as _sys
+_BASE_DIR = Path(getattr(_sys, "_MEIPASS", Path(__file__).parent))
+_STATIC_DIR = _BASE_DIR / "static"
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Mijia Web Dashboard", docs_url="/docs")
 
@@ -346,12 +351,12 @@ async def run_scene(scene_id: str, body: RunSceneRequest):
 
 
 # ── Static / SPA ───────────────────────────────────────────────────────────────
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 
 @app.get("/")
 async def root():
-    return FileResponse("static/index.html")
+    return FileResponse(str(_STATIC_DIR / "index.html"))
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

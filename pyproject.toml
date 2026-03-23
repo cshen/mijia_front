@@ -18,3 +18,9 @@ packages = []
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "cairosvg>=2.9.0",
+    "pyinstaller>=6.19.0",
+]

@@ -100,10 +100,14 @@ Auth credentials are saved to `~/.config/mijia-api/auth.json` and are valid for 
 ```
 mijia_front/
 ├── main.py              # FastAPI backend — all REST API endpoints
+├── launcher.py          # macOS app entry point (starts server + opens browser)
+├── mijia_iot.spec       # PyInstaller build spec for the macOS .app bundle
 ├── pyproject.toml       # Project metadata and dependencies
 ├── uv.lock              # Locked dependency versions
 └── static/
-    └── index.html       # Vue 3 frontend (single self-contained file)
+    ├── index.html       # Vue 3 frontend (single self-contained file)
+    ├── icon.svg         # App icon source (SVG)
+    └── icon.icns        # Generated macOS icon (auto-built from icon.svg)
 ```
 
 ---
@@ -161,6 +165,70 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8080
 ```
 
 ---
+
+## 🍎 macOS App
+
+You can run the dashboard as a native **macOS `.app` bundle** — no terminal required. Double-clicking the app starts the server and opens the dashboard in your default browser.
+
+### Build the app
+
+Install the dev dependencies (only needed once):
+
+```bash
+uv add --dev pyinstaller cairosvg
+```
+
+Convert the SVG icon to `.icns`, then build:
+
+```bash
+.venv/bin/python -c "
+import cairosvg, os
+iconset = '/tmp/mijia.iconset'; os.makedirs(iconset, exist_ok=True)
+for s in [16, 32, 128, 256, 512]:
+    cairosvg.svg2png(url='static/icon.svg', write_to=f'{iconset}/icon_{s}x{s}.png',    output_width=s,   output_height=s)
+    cairosvg.svg2png(url='static/icon.svg', write_to=f'{iconset}/icon_{s}x{s}@2x.png', output_width=s*2, output_height=s*2)
+"
+iconutil -c icns /tmp/mijia.iconset -o static/icon.icns
+.venv/bin/pyinstaller mijia_iot.spec
+```
+
+The app appears at `dist/Mijia IoT.app`. Drag it to your **Applications** folder to install it system-wide.
+
+### Run the app
+
+```bash
+open "dist/Mijia IoT.app"
+```
+
+Or double-click it in Finder. The server starts on `http://localhost:8765` and your browser opens automatically.
+
+### Rebuild after code changes
+
+```bash
+rm -rf build dist
+.venv/bin/pyinstaller mijia_iot.spec
+```
+
+If you also updated `icon.svg`, regenerate `icon.icns` first:
+
+```bash
+.venv/bin/python -c "
+import cairosvg, os
+iconset = '/tmp/mijia.iconset'; os.makedirs(iconset, exist_ok=True)
+for s in [16, 32, 128, 256, 512]:
+    cairosvg.svg2png(url='static/icon.svg', write_to=f'{iconset}/icon_{s}x{s}.png',    output_width=s,   output_height=s)
+    cairosvg.svg2png(url='static/icon.svg', write_to=f'{iconset}/icon_{s}x{s}@2x.png', output_width=s*2, output_height=s*2)
+"
+iconutil -c icns /tmp/mijia.iconset -o static/icon.icns
+```
+
+> **Note:** Auth credentials are stored in `~/.config/mijia-api/auth.json`, outside the bundle, so they persist across rebuilds.
+
+> **Optional menu-bar icon:** Install `rumps` (`uv add rumps`) and rebuild. A menu-bar icon with a **Quit** option will appear automatically.
+
+---
+
+
 
 ## 🖥️ Running as a Background Service (macOS launchd)
 
@@ -229,6 +297,8 @@ launchctl load ~/Library/LaunchAgents/com.mijia.dashboard.plist
 | [`fastapi`](https://fastapi.tiangolo.com/) | Async REST API framework |
 | [`uvicorn`](https://www.uvicorn.org/) | ASGI server |
 | [Vue 3](https://vuejs.org/) (CDN) | Reactive frontend UI |
+| [`pyinstaller`](https://pyinstaller.org) *(dev)* | Packages the app into a macOS `.app` bundle |
+| [`cairosvg`](https://cairosvg.org) *(dev)* | Converts `icon.svg` to `icon.icns` for the app bundle |
 
 ---
 

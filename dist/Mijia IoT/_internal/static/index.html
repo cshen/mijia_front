@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mijia Dashboard</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    /* ── Reset & variables ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d2e;
+      --surface2:  #232740;
+      --border:    #2e3250;
+      --accent:    #4f8ef7;
+      --accent2:   #7c5df7;
+      --green:     #3ecf8e;
+      --red:       #f75f5f;
+      --yellow:    #f5c842;
+      --text:      #e2e8f0;
+      --muted:     #8892a4;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,.4);
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+                 font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    #app { min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header .logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+    header .subtitle { color: var(--muted); font-size: .85rem; }
+    header .spacer { flex: 1; }
+    header .badge {
+      padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+    }
+    header .badge.ok  { background: rgba(62,207,142,.15); color: var(--green); }
+    header .badge.err { background: rgba(247, 95, 95,.15); color: var(--red); }
+    header button.refresh {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size:.84rem;
+      transition: all .15s;
+    }
+    header button.refresh:hover { border-color: var(--accent); color: var(--accent); }
+
+    main { flex: 1; padding: 28px 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+    /* ── Login screen ────────────────────────────────────────────────────── */
+    .login-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 70vh; gap: 24px;
+    }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 40px 48px; text-align: center;
+      max-width: 380px; width: 100%; box-shadow: var(--shadow);
+    }
+    .login-card h2 { font-size: 1.4rem; margin-bottom: 8px; }
+    .login-card p  { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
+    .qr-img { border-radius: 8px; background: #fff; padding: 8px; max-width: 220px; }
+    .qr-img img { display: block; width: 200px; height: 200px; }
+    .qr-placeholder {
+      width: 200px; height: 200px; background: #fff; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center; color: #888;
+      font-size: .8rem;
+    }
+    .status-msg { font-size: .85rem; padding: 8px 16px; border-radius: 8px; }
+    .status-msg.pending { background: rgba(79,142,247,.12); color: var(--accent); }
+    .status-msg.error   { background: rgba(247, 95, 95,.12); color: var(--red); }
+    .status-msg.done    { background: rgba(62,207,142,.12); color: var(--green); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 22px; border-radius: 10px; border: none;
+      font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #3a7aee; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Section / grid ──────────────────────────────────────────────────── */
+    .section { margin-bottom: 36px; }
+    .section-title {
+      font-size: 1.1rem; font-weight: 700; color: var(--muted);
+      letter-spacing: .04em; text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title span.cnt {
+      font-size: .75rem; font-weight: 600; background: var(--surface2);
+      color: var(--accent); border-radius: 10px; padding: 2px 8px;
+    }
+    .section-title span.cnt-on {
+      font-size: .75rem; font-weight: 600; background: rgba(62,207,142,.12);
+      color: var(--green); border-radius: 10px; padding: 2px 8px;
+    }
+
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Device card ─────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .card-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 18px; cursor: pointer; user-select: none;
+    }
+    .device-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .device-icon.light  { background: rgba(245,200,66,.15); }
+    .device-icon.switch { background: rgba(79,142,247,.15); }
+    .device-icon.sensor { background: rgba(62,207,142,.15); }
+    .device-icon.air    { background: rgba(124,93,247,.15); }
+    .device-icon.other  { background: rgba(142,146,164,.12); }
+    .card-title { flex: 1; }
+    .card-title strong { display: block; font-size: .95rem; }
+    .card-title span   { font-size: .75rem; color: var(--muted); }
+    .card-arrow {
+      color: var(--muted); font-size: .8rem;
+      transition: transform .2s;
+    }
+    .card-arrow.open { transform: rotate(180deg); }
+
+    .card-body { padding: 0 18px 16px; }
+    .card-body.loading { text-align: center; padding: 24px; color: var(--muted); font-size: .85rem; }
+    .card-body.error-state { padding: 16px; color: var(--red); font-size: .84rem; }
+
+    /* ── Power indicator on card head ────────────────────────────────────── */
+    .power-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .power-dot.on  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .power-dot.off { background: var(--muted); }
+    .power-dot.unk { background: var(--border); }
+
+    /* ── Device status badge ─────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-block; font-size: .7rem; font-weight: 700;
+      letter-spacing: .04em; border-radius: 4px; padding: 1px 5px;
+      margin-left: 6px; vertical-align: middle; flex-shrink: 0;
+    }
+    .status-badge.on      { color: var(--green);  background: rgba(62,207,142,.12);  border: 1px solid rgba(62,207,142,.3); }
+    .status-badge.off     { color: var(--muted);  background: rgba(142,146,164,.10); border: 1px solid rgba(142,146,164,.25); }
+    .status-badge.offline { color: var(--red);    background: rgba(247, 95, 95,.12); border: 1px solid rgba(247, 95, 95,.3); }
+
+    /* ── Property row ────────────────────────────────────────────────────── */
+    .prop-list { display: flex; flex-direction: column; gap: 10px; }
+    .prop-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: .84rem; min-height: 32px;
+    }
+    .prop-row .prop-label {
+      flex: 0 0 140px; color: var(--muted);
+      white-space: normal; word-break: break-word; overflow-wrap: break-word;
+      padding-top: 5px;
+    }
+    .prop-row .prop-val {
+      flex: 1; display: flex; align-items: flex-start; gap: 8px;
+      flex-wrap: wrap; word-break: break-word; overflow-wrap: break-word;
+      padding-top: 5px;
+    }
+
+    /* Toggle */
+    .toggle {
+      position: relative; width: 42px; height: 24px; cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; background: var(--border);
+      border-radius: 12px; transition: background .2s;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--green); }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; transition: transform .2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* Slider */
+    .prop-slider { flex: 1; appearance: none; height: 4px;
+      border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
+    .prop-slider::-webkit-slider-thumb {
+      appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--accent); cursor: pointer; box-shadow: 0 0 0 2px rgba(79,142,247,.25);
+    }
+    .slider-val { min-width: 36px; text-align: right; color: var(--muted); font-size: .8rem; }
+
+    /* Select */
+    .prop-select {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; padding: 4px 8px;
+      font-size: .82rem; cursor: pointer; outline: none;
+    }
+    .prop-select:focus { border-color: var(--accent); }
+
+    /* Text input */
+    .prop-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; padding: 4px 8px;
+      font-size: .82rem; outline: none; width: 100%;
+    }
+    .prop-input:focus { border-color: var(--accent); }
+
+    /* Read-only value */
+    .read-val { color: var(--text); font-weight: 500; word-break: break-word; overflow-wrap: break-word; }
+    .read-val.bool-true  { color: var(--green); }
+    .read-val.bool-false { color: var(--muted); }
+
+    /* ── Actions ─────────────────────────────────────────────────────────── */
+    .action-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .action-btn {
+      padding: 5px 12px; font-size: .78rem; border-radius: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); cursor: pointer; transition: all .15s;
+      white-space: normal; word-break: break-word;
+    }
+    .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    .action-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Scenes section ──────────────────────────────────────────────────── */
+    .scene-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .scene-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 16px;
+      cursor: pointer; transition: all .2s; text-align: center;
+    }
+    .scene-card:hover { border-color: var(--accent2); transform: translateY(-2px); box-shadow: var(--shadow); }
+    .scene-card:active { transform: scale(.97); }
+    .scene-card .scene-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .scene-card .scene-name { font-size: .88rem; font-weight: 600; }
+    .scene-card .scene-home { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .scene-card.running { border-color: var(--yellow); }
+
+    /* ── Divider ─────────────────────────────────────────────────────────── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 8px 0 14px; }
+
+    /* ── Spinner ─────────────────────────────────────────────────────────── */
+    .spin { display: inline-block; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    .toast-wrap {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+    }
+    .toast {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 18px; font-size: .84rem;
+      box-shadow: var(--shadow); animation: fadeUp .2s ease;
+      max-width: 320px;
+    }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error   { border-left: 3px solid var(--red); }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header>
+    <span class="logo">⌂ Mijia</span>
+    <span class="subtitle">Mi Home Dashboard</span>
+    <div class="spacer"></div>
+    <template v-if="authenticated !== null">
+      <span class="badge" :class="authenticated ? 'ok' : 'err'">
+        {{ authenticated ? '● Connected' : '○ Not logged in' }}
+      </span>
+    </template>
+    <button v-if="authenticated" class="refresh" @click="loadAll" :disabled="loadingDevices">
+      <span v-if="loadingDevices" class="spin">↻</span>
+      <span v-else>↻</span>
+      Refresh
+    </button>
+  </header>
+
+  <!-- ── Login screen ───────────────────────────────────────────────────── -->
+  <main v-if="authenticated === false || authenticated === null">
+    <div class="login-wrap">
+      <div class="login-card">
+        <h2>🔐 Sign in to Mi Home</h2>
+        <p>Scan the QR code with the <strong>Mi Home</strong> app to connect.</p>
+
+        <template v-if="loginState.status === 'pending' && loginState.qr_url">
+          <div class="qr-img" style="margin: 0 auto 20px;">
+            <img :src="loginState.qr_url" alt="Scan with Mi Home" />
+          </div>
+          <div class="status-msg pending">⏳ Waiting for scan…</div>
+        </template>
+
+        <template v-else-if="loginState.status === 'starting'">
+          <div class="qr-placeholder" style="margin: 0 auto 20px;">
+            <span class="spin" style="font-size:1.5rem">↻</span>
+          </div>
+          <div class="status-msg pending">Loading QR code…</div>
+        </template>
+
+        <template v-else-if="loginState.status === 'error' || loginState.status === 'timeout'">
+          <div class="status-msg error" style="margin-bottom:16px">
+            ⚠ {{ loginState.error || 'Login failed' }}
+          </div>
+          <button class="btn btn-primary" @click="startLogin">Try Again</button>
+        </template>
+
+        <template v-else-if="loginState.status === 'done'">
+          <div class="status-msg done">✓ Logged in! Loading…</div>
+        </template>
+
+        <template v-else>
+          <div class="qr-placeholder" style="margin: 0 auto 20px;">
+            <span style="color:#888;font-size:.8rem">QR code will appear here</span>
+          </div>
+          <button class="btn btn-primary" @click="startLogin" :disabled="loginState.status === 'starting'">
+            Get QR Code
+          </button>
+        </template>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Dashboard ──────────────────────────────────────────────────────── -->
+  <main v-else>
+
+    <!-- Scenes -->
+    <div class="section" v-if="scenes.length">
+      <div class="section-title">
+        🎬 Scenes <span class="cnt">{{ scenes.length }}</span>
+      </div>
+      <div class="scene-grid">
+        <div
+          v-for="scene in scenes"
+          :key="scene.scene_id"
+          class="scene-card"
+          :class="{ running: runningScenesIds.has(scene.scene_id) }"
+          @click="runScene(scene)"
+        >
+          <div class="scene-icon">{{ sceneIcon(scene) }}</div>
+          <div class="scene-name">{{ scene.name }}</div>
+          <div class="scene-home">{{ homeNameById(scene.home_id) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Devices grouped by home -->
+    <div v-for="home in homesWithDevices" :key="home.id" class="section">
+      <div class="section-title">
+        🏠 {{ home.name }}
+        <span class="cnt">{{ home.devices.length }} devices</span>
+        <span class="cnt-on" v-if="onCountForHome(home) > 0">
+          ● {{ onCountForHome(home) }} on
+        </span>
+      </div>
+      <div class="device-grid">
+        <device-card
+          v-for="device in home.devices"
+          :key="device.did"
+          :device="device"
+          :power-on="devicePowerMap[device.did]"
+          @toast="showToast"
+          @power="e => devicePowerMap[e.did] = e.on"
+        />
+      </div>
+    </div>
+
+    <div v-if="loadingDevices" style="text-align:center;color:var(--muted);padding:60px;">
+      <span class="spin" style="font-size:2rem">↻</span>
+      <p style="margin-top:12px">Loading devices…</p>
+    </div>
+
+    <div v-else-if="!loadingDevices && homesWithDevices.length === 0" style="text-align:center;color:var(--muted);padding:60px;">
+      No devices found.
+    </div>
+
+  </main>
+
+  <!-- ── Toasts ──────────────────────────────────────────────────────────── -->
+  <div class="toast-wrap">
+    <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">
+      {{ t.msg }}
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+// ── Device Card component ───────────────────────────────────────────────────
+const DeviceCard = {
+  name: 'DeviceCard',
+  props: ['device', 'powerOn'],
+  emits: ['toast', 'power'],
+  setup(props, { emit }) {
+    const open     = ref(false);
+    const loading  = ref(false);
+    const error    = ref(null);
+    const info     = ref(null);   // device spec (properties + actions)
+    const values   = ref({});    // {`${siid}_${piid}`: value}
+    const pending  = ref(new Set());
+
+    // Status shown in card header: 'on' | 'off' | 'offline' | null
+    const deviceStatus = computed(() => {
+      // Explicit offline from device list data
+      if (props.device.online === false) return 'offline';
+      // null = power prop fetch failed (device unreachable)
+      if (props.powerOn === null) return 'offline';
+      if (props.powerOn === true)  return 'on';
+      if (props.powerOn === false) return 'off';
+      return null; // undefined = not yet fetched / no on-prop (sensor etc.)
+    });
+
+    const statusLabel = computed(() => {
+      if (deviceStatus.value === 'on')      return '[ON]';
+      if (deviceStatus.value === 'off')     return '[OFF]';
+      if (deviceStatus.value === 'offline') return '[OFFLINE]';
+      return null;
+    });
+
+    const powerProp = computed(() => {
+      if (!info.value) return null;
+      return info.value.properties?.find(p =>
+        p.name === 'on' && p.rw?.includes('r')
+      ) ?? null;
+    });
+
+    const powerState = computed(() => {
+      if (!powerProp.value) return 'unk';
+      const key = `${powerProp.value.method.siid}_${powerProp.value.method.piid}`;
+      const v = values.value[key];
+      if (v === undefined) return 'unk';
+      return v ? 'on' : 'off';
+    });
+
+    const deviceIcon = computed(() => {
+      const model = (props.device.model || '').toLowerCase();
+      if (model.includes('light') || model.includes('lamp') || model.includes('yee'))
+        return { emoji: '💡', cls: 'light' };
+      if (model.includes('plug') || model.includes('switch') || model.includes('outlet'))
+        return { emoji: '🔌', cls: 'switch' };
+      if (model.includes('sensor') || model.includes('temp') || model.includes('humi'))
+        return { emoji: '🌡️', cls: 'sensor' };
+      if (model.includes('air') || model.includes('fan') || model.includes('purifier'))
+        return { emoji: '💨', cls: 'air' };
+      if (model.includes('camera') || model.includes('cam'))
+        return { emoji: '📷', cls: 'other' };
+      if (model.includes('robot') || model.includes('vacuum'))
+        return { emoji: '🤖', cls: 'other' };
+      if (model.includes('lock') || model.includes('door'))
+        return { emoji: '🔒', cls: 'other' };
+      if (model.includes('curtain') || model.includes('blind'))
+        return { emoji: '🪟', cls: 'other' };
+      return { emoji: '📦', cls: 'other' };
+    });
+
+    async function toggle() {
+      if (!open.value) {
+        open.value = true;
+        if (!info.value && !loading.value) await loadInfo();
+      } else {
+        open.value = false;
+      }
+    }
+
+    async function loadInfo() {
+      loading.value = true;
+      error.value = null;
+      try {
+        const r = await fetch(`/api/device/${props.device.did}/info`);
+        if (!r.ok) throw new Error(await r.text());
+        info.value = await r.json();
+        await loadProps();
+      } catch (e) {
+        error.value = e.message;
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    async function loadProps() {
+      if (!info.value) return;
+      const readable = (info.value.properties || []).filter(p => p.rw?.includes('r'));
+      if (!readable.length) return;
+      try {
+        const r = await fetch(`/api/device/${props.device.did}/props/get`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ props: readable.map(p => p.method) }),
+        });
+        if (!r.ok) return;
+        const results = await r.json();
+        const newVals = {};
+        for (const res of results) {
+          if (res.code === 0) {
+            newVals[`${res.siid}_${res.piid}`] = res.value;
+          }
+        }
+        values.value = newVals;
+        // Emit power state to parent so home headers can show live "on" counts
+        if (powerProp.value) {
+          const pk = `${powerProp.value.method.siid}_${powerProp.value.method.piid}`;
+          const v = newVals[pk];
+          if (v !== undefined) emit('power', { did: props.device.did, on: v });
+        }
+      } catch (_) {}
+    }
+
+    function propKey(prop) {
+      return `${prop.method.siid}_${prop.method.piid}`;
+    }
+
+    function propValue(prop) {
+      return values.value[propKey(prop)];
+    }
+
+    function controlType(prop) {
+      if (!prop.rw?.includes('w')) return 'readonly';
+      if (prop.type === 'bool') return 'toggle';
+      if (prop['value-list']?.length) return 'select';
+      if (prop.type === 'string') return 'text';
+      if (['int','uint','float'].includes(prop.type) && prop.range?.length >= 2) return 'slider';
+      return 'readonly';
+    }
+
+    function displayValue(prop) {
+      const v = propValue(prop);
+      if (v === undefined || v === null) return '—';
+      if (prop['value-list']) {
+        const match = prop['value-list'].find(i => i.value === v);
+        if (match) return match.description || String(v);
+      }
+      if (typeof v === 'boolean') return v ? 'On' : 'Off';
+      if (prop.unit) return `${v} ${prop.unit}`;
+      return String(v);
+    }
+
+    async function setProp(prop, value) {
+      const key = propKey(prop);
+      pending.value.add(key);
+      const oldVal = values.value[key];
+      values.value = { ...values.value, [key]: value };
+      try {
+        const r = await fetch(`/api/device/${props.device.did}/prop/set`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siid: prop.method.siid, piid: prop.method.piid, value }),
+        });
+        const res = await r.json();
+        if (!r.ok || (res.code !== 0 && res.code !== 1)) {
+          values.value = { ...values.value, [key]: oldVal };
+          emit('toast', { type: 'error', msg: `Failed: ${res.message || res.detail || 'error'}` });
+        } else {
+          emit('toast', { type: 'success', msg: `${prop.name} set ✓` });
+        }
+      } catch (e) {
+        values.value = { ...values.value, [key]: oldVal };
+        emit('toast', { type: 'error', msg: e.message });
+      } finally {
+        pending.value.delete(key);
+      }
+    }
+
+    async function runAction(action) {
+      const key = `action_${action.method.siid}_${action.method.aiid}`;
+      pending.value.add(key);
+      try {
+        const r = await fetch(`/api/device/${props.device.did}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siid: action.method.siid, aiid: action.method.aiid }),
+        });
+        const res = await r.json();
+        if (!r.ok || (res.code !== 0 && res.code !== 1)) {
+          emit('toast', { type: 'error', msg: `Action failed: ${res.message || res.detail}` });
+        } else {
+          emit('toast', { type: 'success', msg: `${action.name} ✓` });
+          await loadProps();
+        }
+      } catch (e) {
+        emit('toast', { type: 'error', msg: e.message });
+      } finally {
+        pending.value.delete(key);
+      }
+    }
+
+    // Nicely format property name
+    function fmtName(name) {
+      return name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    // Only show the first occurrence for aliased dash/underscore props
+    function uniqueProps(props_list) {
+      const seen = new Set();
+      return (props_list || []).filter(p => {
+        if (seen.has(p.name)) return false;
+        seen.add(p.name);
+        return !p.name.includes('_'); // prefer dash variant
+      });
+    }
+
+    return {
+      open, loading, error, info, values, pending,
+      powerState, deviceIcon, powerProp, deviceStatus, statusLabel,
+      toggle, loadProps, propKey, propValue, controlType, displayValue,
+      setProp, runAction, fmtName, uniqueProps,
+    };
+  },
+  template: `
+<div class="card">
+  <!-- Card header -->
+  <div class="card-head" @click="toggle">
+    <div class="device-icon" :class="deviceIcon.cls">{{ deviceIcon.emoji }}</div>
+    <div class="card-title">
+      <strong>
+        {{ device.name || 'Unnamed' }}
+        <span v-if="statusLabel" class="status-badge" :class="deviceStatus">{{ statusLabel }}</span>
+      </strong>
+      <span>{{ device.model }}</span>
+    </div>
+    <span class="power-dot" :class="powerState"></span>
+    <span class="card-arrow" :class="{ open }">▼</span>
+  </div>
+
+  <!-- Card body -->
+  <div v-if="open">
+    <hr class="divider" style="margin:0 18px;" />
+
+    <div v-if="loading" class="card-body loading">
+      <span class="spin">↻</span> Loading device info…
+    </div>
+
+    <div v-else-if="error" class="card-body error-state">
+      ⚠ {{ error }}
+    </div>
+
+    <div v-else-if="info" class="card-body">
+      <div class="prop-list">
+        <div
+          v-for="prop in uniqueProps(info.properties)"
+          :key="prop.name"
+          class="prop-row"
+        >
+          <div class="prop-label" :title="prop.description || prop.name">
+            {{ fmtName(prop.name) }}
+          </div>
+          <div class="prop-val">
+
+            <!-- Toggle (bool writable) -->
+            <template v-if="controlType(prop) === 'toggle'">
+              <label class="toggle">
+                <input
+                  type="checkbox"
+                  :checked="!!propValue(prop)"
+                  :disabled="pending.has(propKey(prop))"
+                  @change="e => setProp(prop, e.target.checked)"
+                />
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <span style="font-size:.8rem;color:var(--muted)">
+                {{ propValue(prop) ? 'On' : 'Off' }}
+              </span>
+            </template>
+
+            <!-- Select (value-list) -->
+            <template v-else-if="controlType(prop) === 'select'">
+              <select
+                class="prop-select"
+                :value="propValue(prop)"
+                :disabled="pending.has(propKey(prop))"
+                @change="e => setProp(prop, isNaN(e.target.value) ? e.target.value : Number(e.target.value))"
+              >
+                <option v-for="item in prop['value-list']" :key="item.value" :value="item.value">
+                  {{ item.description || item.value }}
+                </option>
+              </select>
+            </template>
+
+            <!-- Slider (numeric range) -->
+            <template v-else-if="controlType(prop) === 'slider'">
+              <input
+                type="range"
+                class="prop-slider"
+                :min="prop.range[0]"
+                :max="prop.range[1]"
+                :step="prop.range[2] || 1"
+                :value="propValue(prop) ?? prop.range[0]"
+                :disabled="pending.has(propKey(prop))"
+                @change="e => setProp(prop, prop.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value))"
+              />
+              <span class="slider-val">
+                {{ propValue(prop) ?? '—' }}{{ prop.unit ? ' ' + prop.unit : '' }}
+              </span>
+            </template>
+
+            <!-- Text input -->
+            <template v-else-if="controlType(prop) === 'text'">
+              <input
+                type="text"
+                class="prop-input"
+                :value="propValue(prop) ?? ''"
+                :disabled="pending.has(propKey(prop))"
+                @keydown.enter="e => setProp(prop, e.target.value)"
+              />
+            </template>
+
+            <!-- Read-only -->
+            <template v-else>
+              <span class="read-val"
+                :class="{
+                  'bool-true':  propValue(prop) === true,
+                  'bool-false': propValue(prop) === false
+                }"
+              >{{ displayValue(prop) }}</span>
+            </template>
+
+            <!-- Pending spinner -->
+            <span v-if="pending.has(propKey(prop))" class="spin" style="color:var(--muted);font-size:.9rem">↻</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div v-if="info.actions?.length" class="action-list">
+        <button
+          v-for="act in info.actions"
+          :key="act.name"
+          class="action-btn"
+          :disabled="pending.has('action_' + act.method.siid + '_' + act.method.aiid)"
+          @click="runAction(act)"
+          :title="act.description"
+        >
+          {{ act.name.replace(/-/g,' ') }}
+        </button>
+      </div>
+
+      <!-- Refresh button -->
+      <div style="margin-top:12px;">
+        <button class="btn btn-secondary" style="font-size:.78rem;padding:4px 10px;" @click.stop="loadProps">
+          ↻ Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+  `,
+};
+
+// ── Root app ────────────────────────────────────────────────────────────────
+createApp({
+  components: { DeviceCard },
+  setup() {
+    const authenticated = ref(null);
+    const loginState    = ref({ status: 'idle', qr_url: null, error: null });
+    const devices       = ref([]);
+    const homes         = ref([]);
+    const scenes        = ref([]);
+    const loadingDevices = ref(false);
+    const toasts        = ref([]);
+    const runningScenesIds = ref(new Set());
+    const devicePowerMap = ref({});  // { did: true|false|null }
+
+    let pollInterval = null;
+
+    // ── Toast ────────────────────────────────────────────────────────────
+    function showToast({ type, msg }) {
+      const id = Date.now() + Math.random();
+      toasts.value.push({ id, type, msg });
+      setTimeout(() => {
+        toasts.value = toasts.value.filter(t => t.id !== id);
+      }, 3000);
+    }
+
+    // ── Auth polling ─────────────────────────────────────────────────────
+    async function checkAuth() {
+      try {
+        const r = await fetch('/api/auth/status');
+        const d = await r.json();
+        authenticated.value = d.authenticated;
+        loginState.value = d.login_state ?? loginState.value;
+
+        if (d.login_state?.status === 'done' && d.authenticated) {
+          stopPoll();
+          await loadAll();
+        }
+      } catch (_) {}
+    }
+
+    function startPoll() {
+      if (pollInterval) return;
+      pollInterval = setInterval(checkAuth, 2000);
+    }
+
+    function stopPoll() {
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    }
+
+    // ── Login ─────────────────────────────────────────────────────────────
+    async function startLogin() {
+      loginState.value = { status: 'starting', qr_url: null, error: null };
+      try {
+        const r = await fetch('/api/auth/start', { method: 'POST' });
+        const d = await r.json();
+        loginState.value = d;
+        if (d.status === 'pending') {
+          startPoll();
+        } else if (d.status === 'done') {
+          authenticated.value = true;
+          await loadAll();
+        }
+      } catch (e) {
+        loginState.value = { status: 'error', qr_url: null, error: e.message };
+      }
+    }
+
+    // ── Load all data ──────────────────────────────────────────────────────
+    async function loadAll() {
+      loadingDevices.value = true;
+      try {
+        const [devRes, homeRes, sceneRes] = await Promise.all([
+          fetch('/api/devices'),
+          fetch('/api/homes'),
+          fetch('/api/scenes'),
+        ]);
+        if (devRes.ok)   devices.value = await devRes.json();
+        if (homeRes.ok)  homes.value   = await homeRes.json();
+        if (sceneRes.ok) scenes.value  = await sceneRes.json();
+      } catch (e) {
+        showToast({ type: 'error', msg: `Load error: ${e.message}` });
+      } finally {
+        loadingDevices.value = false;
+      }
+      // Fetch power states in background after devices load
+      fetchPowerStates();
+    }
+
+    // ── Power states ──────────────────────────────────────────────────────
+    async function fetchPowerStates() {
+      try {
+        const r = await fetch('/api/devices/power');
+        if (!r.ok) return;
+        const results = await r.json();
+        const map = { ...devicePowerMap.value };
+        for (const item of results) {
+          map[item.did] = item.on;
+        }
+        devicePowerMap.value = map;
+      } catch (_) {}
+    }
+
+    function onCountForHome(home) {
+      return home.devices.filter(d => devicePowerMap.value[d.did] === true).length;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const homesWithDevices = computed(() => {
+      const homeMap = {};
+      for (const h of homes.value) {
+        homeMap[h.id] = { id: h.id, name: h.name, devices: [] };
+      }
+      // Devices not in any known home → "Other"
+      if (!homeMap['shared']) homeMap['shared'] = { id: 'shared', name: 'Shared', devices: [] };
+      const unknownId = '__unknown__';
+
+      for (const d of devices.value) {
+        const hid = d.home_id;
+        if (homeMap[hid]) {
+          homeMap[hid].devices.push(d);
+        } else {
+          if (!homeMap[unknownId]) homeMap[unknownId] = { id: unknownId, name: 'Other', devices: [] };
+          homeMap[unknownId].devices.push(d);
+        }
+      }
+      return Object.values(homeMap).filter(h => h.devices.length > 0);
+    });
+
+    function homeNameById(id) {
+      const h = homes.value.find(h => h.id === id);
+      return h ? h.name : id;
+    }
+
+    function sceneIcon(scene) {
+      const n = (scene.name || '').toLowerCase();
+      if (n.includes('light') || n.includes('lamp') || n.includes('灯')) return '💡';
+      if (n.includes('night') || n.includes('sleep') || n.includes('睡')) return '🌙';
+      if (n.includes('morn') || n.includes('wake') || n.includes('good morning') || n.includes('早')) return '☀️';
+      if (n.includes('leav') || n.includes('away') || n.includes('out') || n.includes('离')) return '🚪';
+      if (n.includes('home') || n.includes('arrive') || n.includes('back') || n.includes('回')) return '🏡';
+      if (n.includes('movie') || n.includes('cinema') || n.includes('影')) return '🎬';
+      if (n.includes('dinner') || n.includes('eat') || n.includes('餐')) return '🍽️';
+      return '🎬';
+    }
+
+
+
+    async function runScene(scene) {
+      runningScenesIds.value.add(scene.scene_id);
+      try {
+        const r = await fetch(`/api/scenes/${scene.scene_id}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ home_id: scene.home_id }),
+        });
+        const d = await r.json();
+        if (r.ok && d.success) {
+          showToast({ type: 'success', msg: `Scene "${scene.name}" triggered ✓` });
+        } else {
+          showToast({ type: 'error', msg: `Scene failed: ${d.detail || 'error'}` });
+        }
+      } catch (e) {
+        showToast({ type: 'error', msg: e.message });
+      } finally {
+        setTimeout(() => runningScenesIds.value.delete(scene.scene_id), 1500);
+      }
+    }
+
+    // ── Mount ─────────────────────────────────────────────────────────────
+    onMounted(async () => {
+      await checkAuth();
+      if (authenticated.value) {
+        await loadAll();
+      }
+    });
+
+    onUnmounted(() => stopPoll());
+
+    return {
+      authenticated, loginState, devices, homes, scenes,
+      loadingDevices, toasts, runningScenesIds,
+      devicePowerMap, onCountForHome,
+      homesWithDevices, homeNameById, sceneIcon,
+      startLogin, loadAll, runScene, showToast,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
