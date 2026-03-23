@@ -156,14 +156,19 @@
     /* ── Property row ────────────────────────────────────────────────────── */
     .prop-list { display: flex; flex-direction: column; gap: 10px; }
     .prop-row {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: flex-start; gap: 8px;
       font-size: .84rem; min-height: 32px;
     }
     .prop-row .prop-label {
       flex: 0 0 140px; color: var(--muted);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      white-space: normal; word-break: break-word; overflow-wrap: break-word;
+      padding-top: 5px;
     }
-    .prop-row .prop-val { flex: 1; display: flex; align-items: center; gap: 8px; }
+    .prop-row .prop-val {
+      flex: 1; display: flex; align-items: flex-start; gap: 8px;
+      flex-wrap: wrap; word-break: break-word; overflow-wrap: break-word;
+      padding-top: 5px;
+    }
 
     /* Toggle */
     .toggle {
@@ -208,7 +213,7 @@
     .prop-input:focus { border-color: var(--accent); }
 
     /* Read-only value */
-    .read-val { color: var(--text); font-weight: 500; }
+    .read-val { color: var(--text); font-weight: 500; word-break: break-word; overflow-wrap: break-word; }
     .read-val.bool-true  { color: var(--green); }
     .read-val.bool-false { color: var(--muted); }
 
@@ -218,6 +223,7 @@
       padding: 5px 12px; font-size: .78rem; border-radius: 8px;
       background: var(--surface2); border: 1px solid var(--border);
       color: var(--text); cursor: pointer; transition: all .15s;
+      white-space: normal; word-break: break-word;
     }
     .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
     .action-btn:disabled { opacity: .45; cursor: not-allowed; }
