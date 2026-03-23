@@ -167,6 +167,54 @@ async def list_devices():
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/devices/power")
+async def devices_power():
+    """
+    Return on/off state for every device that exposes a readable 'on' property.
+    Uses cached MIoT specs and a single batch prop-get call per device.
+    Response: [{did, on: true|false|null}, ...]
+    """
+    api = get_api()
+    if not await asyncio.to_thread(lambda: api.available):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        devices = await asyncio.to_thread(api.get_devices_list)
+        params = []
+        for device in devices:
+            try:
+                info = await asyncio.to_thread(
+                    get_device_info, device["model"], api.auth_data_path.parent
+                )
+                on_prop = next(
+                    (p for p in info.get("properties", [])
+                     if p["name"] == "on" and "r" in (p.get("rw") or "")),
+                    None
+                )
+                if on_prop:
+                    params.append({
+                        "did": device["did"],
+                        "siid": on_prop["method"]["siid"],
+                        "piid": on_prop["method"]["piid"],
+                    })
+            except Exception:
+                continue
+
+        if not params:
+            return []
+
+        results = await asyncio.to_thread(api.get_devices_prop, params)
+        if isinstance(results, dict):
+            results = [results]
+
+        return [
+            {"did": r["did"], "on": r.get("value") if r.get("code") == 0 else None}
+            for r in results
+        ]
+    except APIError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+
 @app.get("/api/homes")
 async def list_homes():
     """Return all homes."""

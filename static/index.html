@@ -104,6 +104,10 @@
       font-size: .75rem; font-weight: 600; background: var(--surface2);
       color: var(--accent); border-radius: 10px; padding: 2px 8px;
     }
+    .section-title span.cnt-on {
+      font-size: .75rem; font-weight: 600; background: rgba(62,207,142,.12);
+      color: var(--green); border-radius: 10px; padding: 2px 8px;
+    }
 
     .device-grid {
       display: grid;
@@ -152,6 +156,16 @@
     .power-dot.on  { background: var(--green); box-shadow: 0 0 6px var(--green); }
     .power-dot.off { background: var(--muted); }
     .power-dot.unk { background: var(--border); }
+
+    /* ── Device status badge ─────────────────────────────────────────────── */
+    .status-badge {
+      display: inline-block; font-size: .7rem; font-weight: 700;
+      letter-spacing: .04em; border-radius: 4px; padding: 1px 5px;
+      margin-left: 6px; vertical-align: middle; flex-shrink: 0;
+    }
+    .status-badge.on      { color: var(--green);  background: rgba(62,207,142,.12);  border: 1px solid rgba(62,207,142,.3); }
+    .status-badge.off     { color: var(--muted);  background: rgba(142,146,164,.10); border: 1px solid rgba(142,146,164,.25); }
+    .status-badge.offline { color: var(--red);    background: rgba(247, 95, 95,.12); border: 1px solid rgba(247, 95, 95,.3); }
 
     /* ── Property row ────────────────────────────────────────────────────── */
     .prop-list { display: flex; flex-direction: column; gap: 10px; }
@@ -364,14 +378,19 @@
     <div v-for="home in homesWithDevices" :key="home.id" class="section">
       <div class="section-title">
         🏠 {{ home.name }}
-        <span class="cnt">{{ home.devices.length }}</span>
+        <span class="cnt">{{ home.devices.length }} devices</span>
+        <span class="cnt-on" v-if="onCountForHome(home) > 0">
+          ● {{ onCountForHome(home) }} on
+        </span>
       </div>
       <div class="device-grid">
         <device-card
           v-for="device in home.devices"
           :key="device.did"
           :device="device"
+          :power-on="devicePowerMap[device.did]"
           @toast="showToast"
+          @power="e => devicePowerMap[e.did] = e.on"
         />
       </div>
     </div>
@@ -401,8 +420,8 @@ const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 // ── Device Card component ───────────────────────────────────────────────────
 const DeviceCard = {
   name: 'DeviceCard',
-  props: ['device'],
-  emits: ['toast'],
+  props: ['device', 'powerOn'],
+  emits: ['toast', 'power'],
   setup(props, { emit }) {
     const open     = ref(false);
     const loading  = ref(false);
@@ -410,6 +429,24 @@ const DeviceCard = {
     const info     = ref(null);   // device spec (properties + actions)
     const values   = ref({});    // {`${siid}_${piid}`: value}
     const pending  = ref(new Set());
+
+    // Status shown in card header: 'on' | 'off' | 'offline' | null
+    const deviceStatus = computed(() => {
+      // Explicit offline from device list data
+      if (props.device.online === false) return 'offline';
+      // null = power prop fetch failed (device unreachable)
+      if (props.powerOn === null) return 'offline';
+      if (props.powerOn === true)  return 'on';
+      if (props.powerOn === false) return 'off';
+      return null; // undefined = not yet fetched / no on-prop (sensor etc.)
+    });
+
+    const statusLabel = computed(() => {
+      if (deviceStatus.value === 'on')      return '[ON]';
+      if (deviceStatus.value === 'off')     return '[OFF]';
+      if (deviceStatus.value === 'offline') return '[OFFLINE]';
+      return null;
+    });
 
     const powerProp = computed(() => {
       if (!info.value) return null;
@@ -490,6 +527,12 @@ const DeviceCard = {
           }
         }
         values.value = newVals;
+        // Emit power state to parent so home headers can show live "on" counts
+        if (powerProp.value) {
+          const pk = `${powerProp.value.method.siid}_${powerProp.value.method.piid}`;
+          const v = newVals[pk];
+          if (v !== undefined) emit('power', { did: props.device.did, on: v });
+        }
       } catch (_) {}
     }
 
@@ -588,7 +631,7 @@ const DeviceCard = {
 
     return {
       open, loading, error, info, values, pending,
-      powerState, deviceIcon, powerProp,
+      powerState, deviceIcon, powerProp, deviceStatus, statusLabel,
       toggle, loadProps, propKey, propValue, controlType, displayValue,
       setProp, runAction, fmtName, uniqueProps,
     };
@@ -599,7 +642,10 @@ const DeviceCard = {
   <div class="card-head" @click="toggle">
     <div class="device-icon" :class="deviceIcon.cls">{{ deviceIcon.emoji }}</div>
     <div class="card-title">
-      <strong>{{ device.name || 'Unnamed' }}</strong>
+      <strong>
+        {{ device.name || 'Unnamed' }}
+        <span v-if="statusLabel" class="status-badge" :class="deviceStatus">{{ statusLabel }}</span>
+      </strong>
       <span>{{ device.model }}</span>
     </div>
     <span class="power-dot" :class="powerState"></span>
@@ -743,6 +789,7 @@ createApp({
     const loadingDevices = ref(false);
     const toasts        = ref([]);
     const runningScenesIds = ref(new Set());
+    const devicePowerMap = ref({});  // { did: true|false|null }
 
     let pollInterval = null;
 
@@ -814,6 +861,26 @@ createApp({
       } finally {
         loadingDevices.value = false;
       }
+      // Fetch power states in background after devices load
+      fetchPowerStates();
+    }
+
+    // ── Power states ──────────────────────────────────────────────────────
+    async function fetchPowerStates() {
+      try {
+        const r = await fetch('/api/devices/power');
+        if (!r.ok) return;
+        const results = await r.json();
+        const map = { ...devicePowerMap.value };
+        for (const item of results) {
+          map[item.did] = item.on;
+        }
+        devicePowerMap.value = map;
+      } catch (_) {}
+    }
+
+    function onCountForHome(home) {
+      return home.devices.filter(d => devicePowerMap.value[d.did] === true).length;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -891,6 +958,7 @@ createApp({
     return {
       authenticated, loginState, devices, homes, scenes,
       loadingDevices, toasts, runningScenesIds,
+      devicePowerMap, onCountForHome,
       homesWithDevices, homeNameById, sceneIcon,
       startLogin, loadAll, runScene, showToast,
     };
