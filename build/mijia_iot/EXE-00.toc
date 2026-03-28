@@ -54,7 +54,7 @@
  [],
  False,
  False,
- 1774266605,
+ 1774694020,
  [('runw',
    '/Users/cs/Projects/Mijia_iot/.venv/lib/python3.12/site-packages/PyInstaller/bootloader/Darwin-64bit/runw',
    'EXECUTABLE')],

@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/base_library.zip</key>
 		<data>
-		sFF7yLLvEq+TQUMU1prpQu90Srk=
+		XwQjPdI6gc3wEkBpnsPCKXMrHz0=
 		</data>
 		<key>Resources/certifi/cacert.pem</key>
 		<data>
@@ -110,7 +110,7 @@
 		</data>
 		<key>Resources/static/index.html</key>
 		<data>
-		rx7FMKeGbZ/TvU0YXDBZ1uA509o=
+		XbFmNBEfqTxFj+cNnGMPF6Fm74E=
 		</data>
 		<key>Resources/websockets-16.0.dist-info/INSTALLER</key>
 		<data>
@@ -1518,7 +1518,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			Pr2EPyOUtzWvlKpXrc6Dwh+mZnuFlcPVvkWjrT38wUI=
+			2xdokY8bFrRL+nKcVfMPyW89EAv2bCWsY/m5V4gT59k=
 			</data>
 		</dict>
 		<key>Resources/certifi/cacert.pem</key>
@@ -1825,7 +1825,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			j3va4Au6cyxlKtfDSE6fMg8QSY7ay23mux6sVr6FNt4=
+			g3i6C/4gld9QtUSr90iCkCjhcekPMQotTFbtL7eoCnY=
 			</data>
 		</dict>
 		<key>Resources/uvloop</key>

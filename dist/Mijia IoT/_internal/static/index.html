@@ -432,9 +432,7 @@ const DeviceCard = {
 
     // Status shown in card header: 'on' | 'off' | 'offline' | null
     const deviceStatus = computed(() => {
-      // Explicit offline from device list data
-      if (props.device.online === false) return 'offline';
-      // null = power prop fetch failed (device unreachable)
+      // null = power prop fetch failed / device offline (backend returns null for isOnline:0)
       if (props.powerOn === null) return 'offline';
       if (props.powerOn === true)  return 'on';
       if (props.powerOn === false) return 'off';
@@ -580,6 +578,13 @@ const DeviceCard = {
         if (!r.ok || (res.code !== 0 && res.code !== 1)) {
           values.value = { ...values.value, [key]: oldVal };
           emit('toast', { type: 'error', msg: `Failed: ${res.message || res.detail || 'error'}` });
+          // If device reported offline, mark it as such in the power map
+          // (skip for locks — they report offline even when functional)
+          const offlineCodes = [-704042011, -10007];
+          const isLock = (props.device.model || '').includes('lock');
+          if (!isLock && offlineCodes.includes(res.code)) {
+            emit('power', { did: props.device.did, on: null });
+          }
         } else {
           emit('toast', { type: 'success', msg: `${prop.name} set ✓` });
         }
