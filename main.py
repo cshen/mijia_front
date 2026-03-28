@@ -185,7 +185,14 @@ async def devices_power():
     try:
         devices = await asyncio.to_thread(api.get_devices_list)
         params = []
+        offline_dids = set()
+        # Lock devices report isOnline:0 even when functional (BLE, not cloud-connected)
+        # and their MIoT "on" property is not a meaningful power toggle — skip them entirely.
+        POWER_STATUS_SKIP_MODELS = ("lock",)
         for device in devices:
+            if any(seg in device.get("model", "") for seg in POWER_STATUS_SKIP_MODELS):
+                continue
+            is_offline = not device.get("isOnline", True)
             try:
                 info = await asyncio.to_thread(
                     get_device_info, device["model"], api.auth_data_path.parent
@@ -196,25 +203,35 @@ async def devices_power():
                     None
                 )
                 if on_prop:
-                    params.append({
-                        "did": device["did"],
-                        "siid": on_prop["method"]["siid"],
-                        "piid": on_prop["method"]["piid"],
-                    })
+                    if is_offline:
+                        # Has a power property but is offline — report null, skip prop fetch
+                        offline_dids.add(device["did"])
+                    else:
+                        params.append({
+                            "did": device["did"],
+                            "siid": on_prop["method"]["siid"],
+                            "piid": on_prop["method"]["piid"],
+                        })
+                # Devices with no "on" property (locks, speakers, sensors…) are simply omitted
             except Exception:
                 continue
 
-        if not params:
+        if not params and not offline_dids:
             return []
 
-        results = await asyncio.to_thread(api.get_devices_prop, params)
-        if isinstance(results, dict):
-            results = [results]
+        results = []
+        if params:
+            prop_results = await asyncio.to_thread(api.get_devices_prop, params)
+            if isinstance(prop_results, dict):
+                prop_results = [prop_results]
+            results = [
+                {"did": r["did"], "on": r.get("value") if r.get("code") == 0 else None}
+                for r in prop_results
+            ]
 
-        return [
-            {"did": r["did"], "on": r.get("value") if r.get("code") == 0 else None}
-            for r in results
-        ]
+        # Offline devices that have a power property get an explicit null
+        results += [{"did": did, "on": None} for did in offline_dids]
+        return results
     except APIError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

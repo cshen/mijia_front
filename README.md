@@ -18,6 +18,7 @@ Built on top of [`mijiaAPI`](https://github.com/Do1e/mijia-api) with a **FastAPI
   - Dropdown for mode selection (`value-list` enums)
   - Text field for string properties
   - Read-only display for sensor values
+- 🟢 **Live online/offline status** — devices with a power property show `[ON]`, `[OFF]`, or `[OFFLINE]` badges; sensors, speakers, and locks show no badge
 - ⚡ **Scenes** — one-tap triggering of all your manual Mi Home scenes
 - 🔄 **Per-device refresh** — re-read live values any time
 - 🍞 **Toast notifications** for success / error feedback
@@ -282,6 +283,10 @@ launchctl load ~/Library/LaunchAgents/com.mijia.dashboard.plist
 **Property values show "—"**
 - Some devices report properties only when online. Check device connectivity in the Mi Home app.
 - Click **↻ Refresh** on the device card to re-poll.
+
+**Device shows `[OFFLINE]` incorrectly**
+- BLE devices (e.g. locks) may report `isOnline: 0` in the Xiaomi cloud even when reachable locally. Lock devices are intentionally excluded from the online/offline badge to avoid false positives.
+- If a non-lock device shows `[OFFLINE]` but is working, check device connectivity in the Mi Home app — the cloud may take a few minutes to reflect the current state.
 
 **`uv sync` fails**
 - Ensure Python 3.12+ is available: `python3 --version`
